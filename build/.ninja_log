@@ -1,7 +1,0 @@
-# ninja log v5
-1	477	1683014438372189982	CMakeFiles/HotReloader.dir/main.cpp.o	1697c98efa8add0d
-546	700	1683014438592190932	HotReloader	587be2f2a8166cc4
-1	482	1683014438382190025	CMakeFiles/HotReloader.dir/src/loadFiles.cpp.o	d8be48f9b51f49d
-1	545	1683014438442190284	CMakeFiles/HotReloader.dir/src/File.cpp.o	eccec8af322fe753
-0	352	1683017022343811735	CMakeFiles/HotReloader.dir/main.cpp.o	1697c98efa8add0d
-352	558	1683017022543812138	HotReloader	75913b4441a11eb9
