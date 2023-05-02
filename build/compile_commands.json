@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/mat/dev/C++/streaming/Cpp-HotReloader/build",
+  "command": "/usr/bin/g++ -g -o CMakeFiles/HotReloader.dir/main.cpp.o -c /home/mat/dev/C++/streaming/Cpp-HotReloader/main.cpp",
+  "file": "/home/mat/dev/C++/streaming/Cpp-HotReloader/main.cpp"
+}
+]
