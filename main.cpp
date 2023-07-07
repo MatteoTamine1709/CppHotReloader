@@ -1,16 +1,17 @@
-#include <iostream>
-#include <vector>
+#include <dirent.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <signal.h>
-#include <thread>
+
 #include <cstdlib>
 #include <cstring>
-#include <dirent.h>
-#include <sys/inotify.h>
-#include <unordered_map>
+#include <iostream>
 #include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 bool running = true;
 int signalFD;
@@ -29,16 +30,19 @@ void watchDir(int fd, std::string path) {
         exit(-1);
     }
     folderWdToPath[wd] = path;
-    DIR* dir = opendir(path.c_str());
+    DIR *dir = opendir(path.c_str());
     if (dir == NULL) {
         std::cerr << "Failed to open directory " << path << std::endl;
         exit(-1);
     }
-    struct dirent* entry;
+    struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
-        bool isCpp = std::string(entry->d_name).find(".cpp") != std::string::npos;
+        bool isCpp =
+            std::string(entry->d_name).find(".cpp") != std::string::npos;
         if (entry->d_type == DT_REG && isCpp) {
-            int wd = inotify_add_watch(fd, (path + "/" + std::string(entry->d_name)).c_str(), IN_MODIFY);
+            int wd = inotify_add_watch(
+                fd, (path + "/" + std::string(entry->d_name)).c_str(),
+                IN_MODIFY);
             if (wd < 0) {
                 std::cerr << "Failed to add watch for " << path << std::endl;
                 exit(-1);
@@ -46,9 +50,11 @@ void watchDir(int fd, std::string path) {
             wdToPath[wd] = path + "/" + std::string(entry->d_name);
         }
         if (entry->d_type == DT_DIR) {
-            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            if (strcmp(entry->d_name, ".") != 0 &&
+                strcmp(entry->d_name, "..") != 0) {
                 char subpath[PATH_MAX];
-                snprintf(subpath, PATH_MAX, "%s/%s", path.c_str(), entry->d_name);
+                snprintf(subpath, PATH_MAX, "%s/%s", path.c_str(),
+                         entry->d_name);
                 watchDir(fd, subpath);
             }
         }
@@ -79,7 +85,7 @@ void sendMyPID() {
 
 void signalHandler(int signal) {
     if (signal == SIGINT) {
-        std::cout << "Stopping" << std::endl; 
+        std::cout << "Stopping" << std::endl;
         close(signalFD);
         kill(targetPID, SIGUSR1);
         running = false;
@@ -99,10 +105,8 @@ void signalHandler(int signal) {
 }
 
 void closeInotify() {
-    for (auto& [wd, path] : wdToPath)
-        inotify_rm_watch(fd, wd);
-    for (auto& [wd, path] : folderWdToPath)
-        inotify_rm_watch(fd, wd);
+    for (auto &[wd, path] : wdToPath) inotify_rm_watch(fd, wd);
+    for (auto &[wd, path] : folderWdToPath) inotify_rm_watch(fd, wd);
     wdToPath.clear();
     folderWdToPath.clear();
     close(fd);
@@ -110,14 +114,13 @@ void closeInotify() {
 }
 
 int connection() {
-    FILE *command = popen("pidof WebServer","r");
+    FILE *command = popen("pidof WebServer", "r");
     char line[1024];
     pid_t previousPID = targetPID;
     fgets(line, 1024, command);
     targetPID = strtoul(line, NULL, 10);
     pclose(command);
-    if (targetPID == previousPID || targetPID == 0)
-        return 0;
+    if (targetPID == previousPID || targetPID == 0) return 0;
     path = "";
     connected = false;
     closeInotify();
@@ -134,7 +137,6 @@ int connection() {
     return 1;
 }
 
-
 int main(int argc, char **argv) {
     struct sigaction sa = {};
     sa.sa_handler = signalHandler;
@@ -145,18 +147,19 @@ int main(int argc, char **argv) {
     const std::string fifoPipePath = "/tmp/fifo";
     signalFD = openPipe(fifoPipePath);
 
-    while (connection() == 0)
-        sleep(5);
+    while (connection() == 0) sleep(5);
     std::vector<std::thread> threads;
     std::mutex m;
     std::cout << "Compiling..." << std::endl;
-    for (auto& a : wdToPath) {
+    for (auto &a : wdToPath) {
         threads.emplace_back([&]() {
             const auto &[_, p] = a;
             std::cout << "Compiling " << p << std::endl;
             std::string outputFile = p.substr(0, p.find_last_of(".")) + ".so";
             char cwd[1024];
-            std::string command = "g++ -shared -fPIC " + p + " -o " + outputFile + " -std=c++20 -I" + path + "/..";
+            std::string command = "g++ -fno-gnu-unique -shared -fPIC " + p +
+                                  " -o " + outputFile + " -std=c++20 -I" +
+                                  path + "/..";
             system(command.c_str());
             m.lock();
             write(signalFD, p.c_str(), p.size());
@@ -164,10 +167,9 @@ int main(int argc, char **argv) {
             m.unlock();
         });
     }
-    for (auto& t : threads)
-        t.join();
+    for (auto &t : threads) t.join();
     std::cout << "Compiled" << std::endl;
-    
+
     std::thread([&]() {
         while (running) {
             connection();
@@ -179,26 +181,30 @@ int main(int argc, char **argv) {
         std::cout << "Waiting for changes..." << std::endl;
         int n_read = read(fd, buffer, 1024);
         bool wasConnected = connected;
-        while (!connected)
-            sleep(5);
-        if (!wasConnected)
-            continue;
+        while (!connected) sleep(5);
+        if (!wasConnected) continue;
         for (char *p = buffer; p < buffer + n_read;) {
             struct inotify_event *event = (struct inotify_event *)p;
             std::string fileName = wdToPath[event->wd];
             bool isCpp = fileName.find(".cpp") != std::string::npos;
             if (event->mask & IN_MODIFY && !(event->mask & IN_ISDIR) && isCpp) {
-                std::cout << "File " << fileName << " was modified." << std::endl;
-                std::string outputFile = fileName.substr(0, fileName.find_last_of(".")) + ".so";
+                std::cout << "File " << fileName << " was modified."
+                          << std::endl;
+                std::string outputFile =
+                    fileName.substr(0, fileName.find_last_of(".")) + ".so";
                 char cwd[1024];
-                std::string command = "g++ -shared -fPIC " + fileName + " -o " + outputFile + " -std=c++20 -I" + path + "/..";
+                std::string command = "g++ -fno-gnu-unique -shared -fPIC " +
+                                      fileName + " -o " + outputFile +
+                                      " -std=c++20 -I" + path + "/..";
                 system(command.c_str());
                 write(signalFD, fileName.c_str(), fileName.size());
                 kill(targetPID, SIGUSR2);
-            } else if (event->mask & IN_MODIFY && folderWdToPath.find(event->wd) != folderWdToPath.end()) {
-                std::cout << "Directory " << folderWdToPath[event->wd] << " was modified." << std::endl;
+            } else if (event->mask & IN_MODIFY &&
+                       folderWdToPath.find(event->wd) != folderWdToPath.end()) {
+                std::cout << "Directory " << folderWdToPath[event->wd]
+                          << " was modified." << std::endl;
                 closeInotify();
-                fd = inotify_init();    
+                fd = inotify_init();
                 watchDir(fd, path);
             }
             p += sizeof(struct inotify_event) + event->len;
