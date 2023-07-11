@@ -157,8 +157,10 @@ int main(int argc, char **argv) {
             std::cout << "Compiling " << p << std::endl;
             std::string outputFile = p.substr(0, p.find_last_of(".")) + ".so";
             char cwd[1024];
-            std::string command = "g++ -fno-gnu-unique -shared -fPIC " + p +
-                                  " -o " + outputFile + " -std=c++20 -I" +
+            std::string command = "g++ " + p + " -o " + outputFile +
+                                  " -O3 -lxml2 -I/usr/include/libxml2 "
+                                  "-fno-gnu-unique -shared -fPIC "
+                                  "-std=c++20 -I" +
                                   path + "/..";
             system(command.c_str());
             m.lock();
@@ -193,9 +195,11 @@ int main(int argc, char **argv) {
                 std::string outputFile =
                     fileName.substr(0, fileName.find_last_of(".")) + ".so";
                 char cwd[1024];
-                std::string command = "g++ -fno-gnu-unique -shared -fPIC " +
-                                      fileName + " -o " + outputFile +
-                                      " -std=c++20 -I" + path + "/..";
+                std::string command = "g++ " + fileName + " -o " + outputFile +
+                                      " -O3 -lxml2 -I/usr/include/libxml2 "
+                                      "-fno-gnu-unique -shared "
+                                      "-fPIC -std=c++20 -I" +
+                                      path + "/..";
                 system(command.c_str());
                 write(signalFD, fileName.c_str(), fileName.size());
                 kill(targetPID, SIGUSR2);
